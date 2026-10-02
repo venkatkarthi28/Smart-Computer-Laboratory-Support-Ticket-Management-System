@@ -9,9 +9,7 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-/** Admin creates/updates a computer. status is optional (defaults to WORKING in the service). */
 public record ComputerRequest(
-
         @NotBlank(message = "Computer code is required")
         @Pattern(regexp = "^[A-Z0-9][A-Z0-9-]{2,29}$",
                  message = "Computer code must be 3-30 characters: capital letters, digits and hyphens (e.g. LAB1-PC-034)")

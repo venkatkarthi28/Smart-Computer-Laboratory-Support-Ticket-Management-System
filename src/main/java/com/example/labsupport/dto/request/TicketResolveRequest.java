@@ -3,9 +3,7 @@ package com.example.labsupport.dto.request;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/** Technician marks a ticket RESOLVED. Both fields are mandatory. */
 public record TicketResolveRequest(
-
         @NotBlank(message = "Diagnosis is required")
         @Size(max = 2000, message = "Diagnosis must be at most 2000 characters")
         String diagnosis,

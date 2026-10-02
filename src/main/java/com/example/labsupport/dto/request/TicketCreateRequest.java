@@ -4,12 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-/**
- * The student sends only IDs and a description. The student (from the JWT), the laboratory
- * (from the computer), status (OPEN) and SLA deadline are all decided by the server.
- */
 public record TicketCreateRequest(
-
         @NotNull(message = "Computer is required")
         Long computerId,
 
