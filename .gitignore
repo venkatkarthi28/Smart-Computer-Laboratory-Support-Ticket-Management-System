@@ -1,0 +1,19 @@
+# Build output
+target/
+
+# Secrets - NEVER commit these
+.env
+*.env
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
