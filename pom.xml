@@ -65,10 +65,23 @@
             <artifactId>spring-boot-starter-data-jpa-test</artifactId>
             <scope>test</scope>
         </dependency>
-                <!-- Password hashing (BCrypt) only. Full Spring Security + JWT comes in Phase 9. -->
+        <!-- Spring Security (also brings BCrypt / spring-security-crypto) -->
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- JWT support: Nimbus library, JwtEncoder/JwtDecoder, Bearer-token filter (Boot 4 starter name) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+        </dependency>
+
+        <!-- Security test support (used from Phase 20 on) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>

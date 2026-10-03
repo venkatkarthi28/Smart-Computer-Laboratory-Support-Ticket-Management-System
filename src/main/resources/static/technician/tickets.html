@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tickets - Lab Support</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/app.css" rel="stylesheet"></head><body>
+<div id="navbar"></div>
+<div class="container pb-5">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+    <h3 class="page-title mb-0">Tickets</h3>
+    <select id="status" class="form-select w-auto"><option value="">All statuses</option>
+      <option>ASSIGNED</option><option>IN_PROGRESS</option><option>RESOLVED</option><option>CLOSED</option><option>REOPENED</option></select>
+  </div>
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><button class="nav-link active" id="tabMine">My tickets</button></li>
+    <li class="nav-item"><button class="nav-link" id="tabPool">Unassigned in my labs <span class="badge bg-danger d-none" id="poolCount"></span></button></li>
+  </ul>
+  <div id="alert"></div>
+  <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+    <thead><tr><th>#</th><th>Lab / Computer</th><th>Category</th><th>Priority</th><th>Status</th><th>Student</th><th>SLA deadline</th><th></th></tr></thead>
+    <tbody id="rows"></tbody></table></div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+      <span class="small text-muted" id="count"></span>
+      <div class="btn-group"><button class="btn btn-sm btn-outline-secondary" id="prev">Previous</button>
+        <button class="btn btn-sm btn-outline-secondary" id="next">Next</button></div></div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/api.js"></script><script src="/js/auth.js"></script><script src="/js/ui.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  let mode = "mine", page = 0, lastPage = true;
+  const details = id => "/technician/ticket-details.html?id=" + id;
+
+  async function load() {
+    UI.alertBox("alert", "", "");
+    const url = mode === "mine"
+      ? "/api/tickets?page=" + page + "&size=10" + ($("status").value ? "&status=" + $("status").value : "")
+      : "/api/technician/tickets/pool?page=" + page + "&size=10";
+    try {
+      const p = await Api.get(url);
+      lastPage = p.last;
+      $("rows").innerHTML = p.content.length ? p.content.map(t =>
+        '<tr class="clickable" data-id="' + t.id + '"><td>#' + t.id + "</td><td>" + UI.esc(t.laboratoryName) + " / " + UI.esc(t.computerCode) +
+        "</td><td>" + UI.esc(t.categoryName) + "</td><td>" + UI.priorityBadge(t.priorityName) + "</td><td>" + UI.statusBadge(t.status) + UI.slaBadge(t.slaBreached) +
+        "</td><td>" + UI.esc(t.studentName) + "</td><td>" + UI.dateTime(t.slaDeadline) + "</td><td>" +
+        (mode === "pool" ? '<button class="btn btn-sm btn-primary accept" data-id="' + t.id + '">Accept</button>' : "") + "</td></tr>").join("")
+        : '<tr><td colspan="8" class="text-muted p-3">' + (mode === "pool" ? "No unassigned tickets in your labs." : "No tickets found.") + "</td></tr>";
+      $("rows").querySelectorAll("tr.clickable").forEach(tr => tr.addEventListener("click", () => window.location.href = details(tr.dataset.id)));
+      $("rows").querySelectorAll("button.accept").forEach(b => b.addEventListener("click", async ev => {
+        ev.stopPropagation(); b.disabled = true;
+        try { await Api.put("/api/tickets/" + b.dataset.id + "/accept"); window.location.href = details(b.dataset.id); }
+        catch (e) { UI.showError("alert", e); b.disabled = false; }
+      }));
+      $("count").textContent = p.totalElements + " ticket(s) - page " + (p.page + 1) + " of " + Math.max(p.totalPages, 1);
+      $("prev").disabled = page === 0; $("next").disabled = lastPage;
+      if (mode === "pool") setPoolBadge(p.totalElements);
+    } catch (e) { UI.showError("alert", e); }
+  }
+  function setPoolBadge(n) { $("poolCount").textContent = n; $("poolCount").classList.toggle("d-none", !n); }
+  function setMode(m) {
+    mode = m; page = 0;
+    $("tabMine").classList.toggle("active", m === "mine"); $("tabPool").classList.toggle("active", m === "pool");
+    $("status").classList.toggle("d-none", m === "pool");
+    load();
+  }
+
+  Auth.require("TECHNICIAN").then(async user => {
+    UI.renderNavbar(user);
+    $("tabMine").onclick = () => setMode("mine"); $("tabPool").onclick = () => setMode("pool");
+    $("status").onchange = () => { page = 0; load(); };
+    $("prev").onclick = () => { page--; load(); }; $("next").onclick = () => { page++; load(); };
+    try { setPoolBadge((await Api.get("/api/technician/tickets/pool?size=1")).totalElements); } catch (e) { /* optional */ }
+    load();
+  });
+</script></body></html>

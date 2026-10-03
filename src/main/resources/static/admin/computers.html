@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Computers - Lab Support</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/app.css" rel="stylesheet"></head><body>
+<div id="navbar"></div>
+<div class="container-fluid px-4 pb-5" id="page"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/api.js"></script><script src="/js/auth.js"></script><script src="/js/ui.js"></script><script src="/js/admin-crud.js"></script>
+<script>
+  Auth.require("ADMIN").then(user => {
+    UI.renderNavbar(user);
+    let labsPromise;
+    const labs = () => labsPromise || (labsPromise = Api.get("/api/laboratories"));
+    const labOptions = async () => (await labs()).map(l => [l.id, l.name]);
+    const STATUS = [["WORKING", "Working"], ["UNDER_MAINTENANCE", "Under maintenance"], ["OUT_OF_SERVICE", "Out of service"]];
+    const statusBadge = s => AdminCrud.badge((STATUS.find(x => x[0] === s) || [0, s])[1], { WORKING: "good", UNDER_MAINTENANCE: "warn", OUT_OF_SERVICE: "bad" }[s]);
+
+    AdminCrud.init({
+      title: "Computers", subtitle: "Every computer in the laboratories, with its status and maintenance history.", singular: "computer", plural: "computers",
+      base: "/api/admin/computers", paged: true, pageSize: 20, wide: true,
+      searchPlaceholder: "Search this page", emptyText: "No computers found.",
+      fetch: async s => {
+        const qs = "page=" + s.page + "&size=" + s.size + (s.filters.labId ? "&labId=" + s.filters.labId : "") + (s.filters.status ? "&status=" + s.filters.status : "");
+        const p = await Api.get("/api/computers?" + qs);
+        return { items: p.content, page: p.page, totalPages: p.totalPages, totalElements: p.totalElements, last: p.last };
+      },
+      match: (c, q) => [c.computerCode, c.computerName, c.brand, c.model, c.laboratoryName].join(" ").toLowerCase().includes(q),
+      itemName: c => c.computerCode,
+      filters: [
+        { id: "labId", label: "All laboratories", options: labOptions, param: "labId" },
+        { id: "status", label: "All statuses", options: async () => STATUS }
+      ],
+      columns: [
+        { label: "Computer", render: c => "<strong>" + UI.esc(c.computerCode) + '</strong><div class="small text-muted">' + UI.esc(c.computerName) + "</div>" },
+        { label: "Laboratory", render: c => UI.esc(c.laboratoryName) },
+        { label: "Hardware", render: c => UI.esc([c.brand, c.model].filter(Boolean).join(" ") || "-") +
+            '<div class="small text-muted">' + UI.esc([c.processor, c.ram, c.storageCapacity, c.operatingSystem].filter(Boolean).join(" | ")) + "</div>" },
+        { label: "IP address", render: c => UI.esc(c.ipAddress || "-") },
+        { label: "Status", render: c => statusBadge(c.status) }
+      ],
+      fields: [
+        { name: "computerCode", label: "Computer code", required: true, maxlength: 30, half: true, help: "Capital letters, digits and hyphens, for example LAB1-PC-034." },
+        { name: "computerName", label: "Computer name", required: true, maxlength: 100, half: true },
+        { name: "laboratoryId", label: "Laboratory", type: "select", numeric: true, required: true, half: true, options: labOptions },
+        { name: "status", label: "Status", type: "select", half: true, options: async () => STATUS, default: "WORKING" },
+        { name: "brand", label: "Brand", maxlength: 100, half: true },
+        { name: "model", label: "Model", maxlength: 100, half: true },
+        { name: "processor", label: "Processor", maxlength: 100, half: true },
+        { name: "ram", label: "RAM", maxlength: 50, half: true },
+        { name: "storageCapacity", label: "Storage", maxlength: 50, half: true },
+        { name: "operatingSystem", label: "Operating system", maxlength: 100, half: true },
+        { name: "ipAddress", label: "IP address (optional)", maxlength: 45, half: true },
+        { name: "purchaseDate", label: "Purchase date (optional)", type: "date", half: true }
+      ],
+      actions: [{ key: "history", label: "History", run: async (c, ctx) => {
+        let rows;
+        try { rows = await Api.get("/api/computers/" + c.id + "/maintenance-history"); }
+        catch (e) { ctx.notify("danger", UI.esc(e.message)); return; }
+        ctx.dialog({
+          title: "Maintenance history - " + c.computerCode,
+          body: rows.length ? '<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Resolved</th><th>Ticket</th><th>Category</th><th>Technician</th><th>Issue</th><th>Resolution</th></tr></thead><tbody>' +
+            rows.map(r => "<tr><td class='text-nowrap'>" + UI.dateTime(r.resolvedAt) + "</td><td>#" + r.ticketId + "</td><td>" + UI.esc(r.categoryName) + "</td><td>" +
+              UI.esc(r.technicianName || "-") + "</td><td>" + UI.esc(r.issueSummary) + "</td><td>" + UI.esc(r.resolutionSummary) + "</td></tr>").join("") + "</tbody></table></div>"
+            : '<div class="text-center text-muted py-4"><i class="bi bi-tools fs-3 d-block mb-1"></i>No repairs recorded for this computer yet.</div>'
+        });
+      } }]
+    });
+  });
+</script></body></html>

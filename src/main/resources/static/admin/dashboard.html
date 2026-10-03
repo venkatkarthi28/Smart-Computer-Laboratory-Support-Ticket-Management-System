@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Dashboard - Lab Support</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/css/app.css" rel="stylesheet">
+</head>
+<body>
+<div id="navbar"></div>
+<div class="container-fluid px-4 pb-5">
+  <h3 class="page-title mb-3">Admin dashboard</h3>
+  <div id="alert"></div>
+  <h6 class="text-muted text-uppercase">Laboratories and computers</h6>
+  <div class="row g-3 mb-4" id="labStats"></div>
+  <h6 class="text-muted text-uppercase">Tickets</h6>
+  <div class="row g-3 mb-4" id="ticketStats"></div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-7"><div class="card h-100"><div class="card-header bg-white fw-semibold">Tickets by category</div>
+      <div class="card-body"><div class="chart-box"><canvas id="catChart"></canvas></div></div></div></div>
+    <div class="col-lg-5"><div class="card h-100"><div class="card-header bg-white fw-semibold">Tickets by priority</div>
+      <div class="card-body"><div class="chart-box"><canvas id="priChart"></canvas></div></div></div></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-7"><div class="card"><div class="card-header bg-white fw-semibold">Technician workload</div>
+      <div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>Technician</th><th>Assigned</th><th>Active</th><th>Resolved</th><th>SLA breached</th></tr></thead>
+        <tbody id="workload"><tr><td colspan="5" class="text-muted p-3">Loading...</td></tr></tbody></table></div></div></div>
+    <div class="col-lg-5"><div class="card"><div class="card-header bg-white fw-semibold">Problematic computers (2+ tickets)</div>
+      <div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>Computer</th><th>Laboratory</th><th>Tickets</th></tr></thead>
+        <tbody id="problem"><tr><td colspan="3" class="text-muted p-3">Loading...</td></tr></tbody></table></div></div></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  const PRIORITY_COLORS = { LOW: "#198754", MEDIUM: "#f59f00", HIGH: "#fd7e14", CRITICAL: "#dc3545" };
+  const FALLBACK = ["#2c5282", "#6f42c1", "#20c997", "#0dcaf0", "#d63384", "#6c757d"];
+
+  Auth.require("ADMIN").then(async user => {
+    UI.renderNavbar(user);
+    try {
+      const [d, workload, problem] = await Promise.all([
+        Api.get("/api/admin/dashboard"),
+        Api.get("/api/admin/technicians/workload"),
+        Api.get("/api/admin/computers/problematic")
+      ]);
+
+      document.getElementById("labStats").innerHTML =
+        UI.statCard("Laboratories", d.totalLabs, "dark") +
+        UI.statCard("Computers", d.totalComputers, "dark") +
+        UI.statCard("Working", d.workingComputers, "green") +
+        UI.statCard("Under maintenance", d.underMaintenanceComputers, "orange") +
+        UI.statCard("Out of service", d.outOfServiceComputers, "red");
+
+      document.getElementById("ticketStats").innerHTML =
+        UI.statCard("Total tickets", d.totalTickets, "dark") +
+        UI.statCard("Open", d.openTickets, "red") +
+        UI.statCard("Assigned", d.assignedTickets, "blue") +
+        UI.statCard("In progress", d.inProgressTickets, "orange") +
+        UI.statCard("Resolved", d.resolvedTickets, "green") +
+        UI.statCard("Closed", d.closedTickets, "gray") +
+        UI.statCard("Reopened", d.reopenedTickets, "red") +
+        UI.statCard("SLA breached", d.slaBreachedTickets, "red") +
+        UI.statCard("Avg resolution time", UI.minutes(d.averageResolutionMinutes), "gray");
+
+      const cats = d.ticketsByCategory || [];
+      new Chart(document.getElementById("catChart"), {
+        type: "bar",
+        data: { labels: cats.map(c => c.label), datasets: [{ label: "Tickets", data: cats.map(c => c.count), backgroundColor: "#1765e0" }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+
+      const pris = d.ticketsByPriority || [];
+      new Chart(document.getElementById("priChart"), {
+        type: "doughnut",
+        data: { labels: pris.map(p => p.label), datasets: [{ data: pris.map(p => p.count),
+          backgroundColor: pris.map((p, i) => PRIORITY_COLORS[p.label] || FALLBACK[i % FALLBACK.length]) }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      });
+
+      document.getElementById("workload").innerHTML = workload.length ? workload.map(w =>
+        "<tr><td>" + UI.esc(w.technicianName) + "</td><td>" + w.assignedTickets + "</td><td>" + w.activeTickets +
+        "</td><td>" + w.resolvedTickets + "</td><td>" + (w.slaBreachedTickets > 0
+          ? '<span class="badge sla-breached">' + w.slaBreachedTickets + "</span>" : "0") + "</td></tr>").join("")
+        : '<tr><td colspan="5" class="text-muted p-3">No technicians yet.</td></tr>';
+
+      document.getElementById("problem").innerHTML = problem.length ? problem.map(p =>
+        "<tr><td>" + UI.esc(p.computerCode) + "</td><td>" + UI.esc(p.laboratoryName) + "</td><td><strong>" +
+        p.ticketCount + "</strong></td></tr>").join("")
+        : '<tr><td colspan="3" class="text-muted p-3">No computer has 2 or more tickets yet.</td></tr>';
+    } catch (err) { UI.showError("alert", err); }
+  });
+</script>
+</body>
+</html>
