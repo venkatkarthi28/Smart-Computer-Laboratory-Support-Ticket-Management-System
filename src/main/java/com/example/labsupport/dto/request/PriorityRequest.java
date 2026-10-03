@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 
 public record PriorityRequest(
         @NotBlank(message = "Priority name is required")
-        @Size(max = 30, message = "Name must be at most 30 characters")
+        @Size(max = 20, message = "Name must be at most 20 characters")
         String name,
 
         @NotNull(message = "SLA hours is required")

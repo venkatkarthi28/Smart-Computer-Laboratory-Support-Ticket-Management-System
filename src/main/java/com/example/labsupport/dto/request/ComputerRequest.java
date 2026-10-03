@@ -1,13 +1,14 @@
 package com.example.labsupport.dto.request;
 
+import java.time.LocalDate;
+
 import com.example.labsupport.entity.ComputerStatus;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-
-import java.time.LocalDate;
 
 public record ComputerRequest(
         @NotBlank(message = "Computer code is required")
@@ -16,28 +17,28 @@ public record ComputerRequest(
         String computerCode,
 
         @NotBlank(message = "Computer name is required")
-        @Size(max = 100, message = "Computer name must be at most 100 characters")
+        @Size(max = 60, message = "Computer name must be at most 60 characters")
         String computerName,
 
         @NotNull(message = "Laboratory is required")
         Long laboratoryId,
 
-        @Size(max = 100, message = "Brand must be at most 100 characters")
+        @Size(max = 50, message = "Brand must be at most 50 characters")
         String brand,
 
-        @Size(max = 100, message = "Model must be at most 100 characters")
+        @Size(max = 80, message = "Model must be at most 80 characters")
         String model,
 
-        @Size(max = 100, message = "Processor must be at most 100 characters")
+        @Size(max = 80, message = "Processor must be at most 80 characters")
         String processor,
 
-        @Size(max = 50, message = "RAM must be at most 50 characters")
+        @Size(max = 30, message = "RAM must be at most 30 characters")
         String ram,
 
         @Size(max = 50, message = "Storage must be at most 50 characters")
         String storageCapacity,
 
-        @Size(max = 100, message = "Operating system must be at most 100 characters")
+        @Size(max = 60, message = "Operating system must be at most 60 characters")
         String operatingSystem,
 
         @Pattern(regexp = "^$|^(\\d{1,3}\\.){3}\\d{1,3}$", message = "IP address format is invalid")
